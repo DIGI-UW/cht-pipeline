@@ -26,5 +26,7 @@ models:
         data_type: string
       - name: contact_uuid
         data_type: string
+      - name: patient_sms_response
+        data_type: string
       - name: fields
         data_type: JSONB
