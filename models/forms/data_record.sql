@@ -35,6 +35,8 @@ SELECT
 
   doc->'contact'->>'_id' as contact_uuid,
 
+  doc->'fields'->>'patient_sms'->>'response' as patient_sms_response,
+
   doc->'fields' as fields
 FROM {{ env_var('POSTGRES_SCHEMA') }}.{{ env_var('POSTGRES_TABLE') }}
 WHERE
