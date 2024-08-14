@@ -75,6 +75,8 @@ models:
         data_type: timestamp
       - name: place_id
         data_type: string
+      - name: name
+        data_type: string
   - name: patient
     config:
       contract:
