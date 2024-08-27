@@ -52,7 +52,7 @@ models:
               field: uuid
       - name: saved_timestamp
         data_type: timestamp
-      - name: age_years
+      - name: age
         data_type: integer
       - name: is_minor
         data_type: boolean

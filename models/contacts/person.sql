@@ -13,8 +13,8 @@
 SELECT
   contact.uuid,
   contact.saved_timestamp,
-  doc->>'age_years' as age,
-  doc->>'is_minor' as is_minor,
+  (doc->>'age_years')::int as age,
+  (doc->>'is_minor')::boolean as is_minor,
   doc->>'vmmc_no' as vmmc_no,
   doc->'enrollment_facility'->>'name' as enrollment_facility,
   doc->>'enrollment_location' as enrollment_location
