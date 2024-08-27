@@ -53,7 +53,7 @@ models:
       - name: saved_timestamp
         data_type: timestamp
       - name: reported
-        data_type: timestamp
+        data_type: timestamp with time zone
       - name: age
         data_type: integer
       - name: is_minor
@@ -103,7 +103,7 @@ models:
       - name: saved_timestamp
         data_type: timestamp
       - name: reported
-        data_type: timestamp
+        data_type: timestamp with time zone
       - name: age
         data_type: integer
       - name: is_minor
