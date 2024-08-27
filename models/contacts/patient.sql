@@ -14,6 +14,11 @@
 SELECT
   uuid,
   person.saved_timestamp,
+  person.age,
+  person.is_minor,
+  person.vmmc_no,
+  person.enrollment_facility,
+  person.enrollment_location,
   couchdb.doc->>'patient_id' as patient_id
 FROM {{ ref('person') }} person
 INNER JOIN {{ env_var('POSTGRES_SCHEMA') }}.{{ env_var('POSTGRES_TABLE') }} couchdb ON couchdb._id = uuid
