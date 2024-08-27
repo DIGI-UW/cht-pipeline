@@ -13,8 +13,11 @@
 SELECT
   contact.uuid,
   contact.saved_timestamp,
-  couchdb.doc->>'date_of_birth' as date_of_birth,
-  couchdb.doc->>'sex' as sex
+  doc->>'age_years' as age::integer,
+  doc->>'is_minor' as is_minor::boolean,
+  doc->>'vmmc_no' as vmmc_no,
+  doc->'enrollment_facility'->>'name' as enrollment_facility,
+  doc->>'enrollment_location' as enrollment_location
 FROM {{ ref("contact") }} contact
 INNER JOIN {{ env_var('POSTGRES_SCHEMA') }}.{{ env_var('POSTGRES_TABLE') }} couchdb ON couchdb._id = uuid
 WHERE contact.contact_type = 'person'

@@ -52,9 +52,15 @@ models:
               field: uuid
       - name: saved_timestamp
         data_type: timestamp
-      - name: date_of_birth
+      - name: age_years
+        data_type: integer
+      - name: is_minor
+        data_type: boolean
+      - name: vmmc_no
         data_type: string
-      - name: sex
+      - name: enrollment_facility
+        data_type: string
+      - name: enrollment_location
         data_type: string
   - name: place
     config:

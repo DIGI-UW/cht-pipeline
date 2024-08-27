@@ -9,3 +9,4 @@ tests/.user.yml
 dbt-env/*
 .user.yml
 dbt-env/*
+__pycache__/
