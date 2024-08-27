@@ -14,6 +14,7 @@
 SELECT
   uuid,
   person.saved_timestamp,
+  person.reported,
   person.age,
   person.is_minor,
   person.vmmc_no,

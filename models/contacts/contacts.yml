@@ -52,6 +52,8 @@ models:
               field: uuid
       - name: saved_timestamp
         data_type: timestamp
+      - name: reported
+        data_type: timestamp
       - name: age
         data_type: integer
       - name: is_minor
@@ -99,6 +101,8 @@ models:
               to: ref('contact')
               field: uuid
       - name: saved_timestamp
+        data_type: timestamp
+      - name: reported
         data_type: timestamp
       - name: age
         data_type: integer

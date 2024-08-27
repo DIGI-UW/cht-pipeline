@@ -13,6 +13,7 @@
 SELECT
   contact.uuid,
   contact.saved_timestamp,
+  contact.reported,
   (doc->>'age_years')::int as age,
   (doc->>'is_minor')::boolean as is_minor,
   doc->>'vmmc_no' as vmmc_no,
