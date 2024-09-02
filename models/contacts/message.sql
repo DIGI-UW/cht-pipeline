@@ -19,9 +19,9 @@ SELECT
     TO_TIMESTAMP((doc->>'reported_date')::bigint / 1000) AS reported,
     d.doc->'sms_message'->>'message' AS message
 FROM 
-    {{ ref('contact') }} 
+    {{ ref('contact') }} c
 JOIN 
-    patient p ON c.uuid = p.uuid
+    {{ ref('patient') }} p ON c.uuid = p.uuid
 JOIN 
     {{ env_var('POSTGRES_SCHEMA') }}.{{ env_var('POSTGRES_TABLE') }} d ON d.doc->'sms_message'->>'from' IN (c.phone, c.phone2)
 WHERE 
