@@ -116,3 +116,28 @@ models:
         data_type: string
       - name: patient_id
         data_type: string
+  - name: message
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: uuid
+        data_type: string
+        constraints:
+          - type: foreign_key
+            expression: "{{ env_var('POSTGRES_SCHEMA') }}.contact (uuid) ON DELETE CASCADE"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('contact')
+              field: uuid
+      - name: reported
+        data_type: timestamp with time zone
+      - name: name
+        data_type: string
+      - name: phone
+        data_type: string
+      - name: form
+        data_type: string
+      - name: message
+        data_type: string
