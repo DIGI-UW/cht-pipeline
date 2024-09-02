@@ -6,7 +6,6 @@
     indexes=[
       {'columns': ['uuid'], 'type': 'hash'},
       {'columns': ['saved_timestamp'], 'type': 'btree'},
-      {'columns': ['patient_id'], 'type': 'hash'},
     ]
   )
 }}
