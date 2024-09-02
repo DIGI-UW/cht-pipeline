@@ -14,6 +14,7 @@
 SELECT 
     p.uuid,
     c.name,
+    c.saved_timestamp,
     d.doc->'sms_message'->>'from' AS phone,
     d.doc->>'form' AS form,
     TO_TIMESTAMP((doc->>'reported_date')::bigint / 1000) AS reported,

@@ -141,3 +141,5 @@ models:
         data_type: string
       - name: message
         data_type: string
+      - name: saved_timestamp
+        data_type: timestamp
