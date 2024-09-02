@@ -12,10 +12,10 @@
 }}
 
 SELECT 
-    p.uuid AS patient_uuid,
+    p.uuid,
     c.name,
     d.doc->'sms_message'->>'from' AS phone,
-    d.doc->'form' AS form,
+    d.doc->>'form' AS form,
     TO_TIMESTAMP((doc->>'reported_date')::bigint / 1000) AS reported,
     d.doc->'sms_message'->>'message' AS message
 FROM 
