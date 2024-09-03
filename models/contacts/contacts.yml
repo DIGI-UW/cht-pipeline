@@ -153,11 +153,11 @@ models:
         data_type: string
         constraints:
           - type: foreign_key
-            expression: "{{ env_var('POSTGRES_SCHEMA') }}.patient (uuid) ON DELETE CASCADE"
+            expression: "{{ env_var('POSTGRES_SCHEMA') }}.contact (uuid) ON DELETE CASCADE"
         tests:
           - not_null
           - relationships:
-              to: ref('patient')
+              to: ref('contact')
               field: uuid
       - name: reported
         data_type: timestamp with time zone
