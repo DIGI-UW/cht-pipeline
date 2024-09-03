@@ -12,7 +12,7 @@
 SELECT DISTINCT
     e.uuid,
     e.age,
-    e.reported::date as reported,
+    e.reported as reported,
     e.vmmc_no,
     e.enrollment_facility,
     e.saved_timestamp,
