@@ -143,3 +143,55 @@ models:
         data_type: string
       - name: saved_timestamp
         data_type: timestamp
+  
+  - name: response
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: uuid
+        data_type: string
+        constraints:
+          - type: foreign_key
+            expression: "{{ env_var('POSTGRES_SCHEMA') }}.patient (uuid) ON DELETE CASCADE"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('patient')
+              field: uuid
+      - name: reported
+        data_type: timestamp with time zone
+      - name: age
+        data_type: integer
+      - name: vmmc_no
+        data_type: string
+      - name: enrollment_facility
+        data_type: string
+      - name: saved_timestamp
+        data_type: timestamp
+      - name: day_1
+        data_type: string
+      - name: day_2
+        data_type: string
+      - name: day_3
+        data_type: string
+      - name: day_4
+        data_type: string
+      - name: day_5
+        data_type: string
+      - name: day_6
+        data_type: string
+      - name: day_7
+        data_type: string
+      - name: day_8
+        data_type: string
+      - name: day_9
+        data_type: string
+      - name: day_10
+        data_type: string
+      - name: day_11
+        data_type: string
+      - name: day_12
+        data_type: string
+      - name: day_13
+        data_type: string
