@@ -17,10 +17,10 @@ SELECT
   couchdb.doc->>'place_id' as place_id,
   couchdb.doc->>'name' as name
 FROM {{ ref('contact') }} contact
-INNER JOIN {{ env_var('POSTGRES_SCHEMA') }}.{{ env_var('POSTGRES_TABLE') }} couchdb ON couchdb._id = uuid
-WHERE 
+INNER JOIN {{ source('couchdb', env_var('POSTGRES_TABLE')) }} couchdb ON couchdb._id = uuid
+WHERE
   (
-    (couchdb.doc->>'place_id' IS NOT NULL) OR 
+    (couchdb.doc->>'place_id' IS NOT NULL) OR
     (contact.contact_type <> 'person')
   )
 {% if is_incremental() %}

@@ -9,9 +9,14 @@ models:
       - name: uuid
         data_type: string
         constraints:
+          - type: foreign_key
+            expression: "{{ env_var('POSTGRES_SCHEMA') }}.document_metadata (uuid) ON DELETE CASCADE"
           - type: unique
-        tests:
+        data_tests:
           - not_null
+          - relationships:
+              to: ref('document_metadata')
+              field: uuid
       - name: saved_timestamp
         data_type: timestamp
       - name: reported
@@ -30,3 +35,7 @@ models:
         data_type: string
       - name: fields
         data_type: JSONB
+      - name: parent_uuid
+        data_type: string
+      - name: grandparent_uuid
+        data_type: string

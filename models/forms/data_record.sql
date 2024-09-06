@@ -11,13 +11,15 @@
       {'columns': ['form']},
       {'columns': ['patient_id']},
       {'columns': ['contact_uuid']},
+      {'columns': ['parent_uuid']},
+      {'columns': ['grandparent_uuid']},
     ]
   )
 }}
 
 SELECT
-  _id as uuid,
-  saved_timestamp,
+  document_metadata.uuid as uuid,
+  document_metadata.saved_timestamp,
   to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) AS reported,
   doc->>'form' as form,
   doc->>'from' as from_phone,
@@ -38,9 +40,15 @@ SELECT
   doc->'fields'->'patient_sms'->>'response' as patient_sms_response,
 
   doc->'fields' as fields
-FROM {{ env_var('POSTGRES_SCHEMA') }}.{{ env_var('POSTGRES_TABLE') }}
+  doc->'contact'->'parent'->>'_id' as parent_uuid,
+  doc->'contact'->'parent'->'parent'->>'_id' as grandparent_uuid
+FROM {{ ref('document_metadata') }} document_metadata
+INNER JOIN
+  {{ source('couchdb', env_var('POSTGRES_TABLE')) }} doc
+  ON doc._id = document_metadata.uuid
 WHERE
-  doc->>'type' = 'data_record'
+  document_metadata.doc_type = 'data_record'
+  AND document_metadata._deleted = false
 {% if is_incremental() %}
-  AND saved_timestamp >= {{ max_existing_timestamp('saved_timestamp') }}
+  AND document_metadata.saved_timestamp >= {{ max_existing_timestamp('saved_timestamp') }}
 {% endif %}
