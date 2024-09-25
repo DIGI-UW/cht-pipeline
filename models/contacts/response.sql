@@ -15,6 +15,9 @@ SELECT DISTINCT
     e.reported as reported,
     e.vmmc_no,
     e.enrollment_facility,
+    e.implementing_partner,
+    e.district,
+    e.province,
     e.saved_timestamp,
     CASE 
         WHEN j1.form = '1' THEN 'Potential AE' 
