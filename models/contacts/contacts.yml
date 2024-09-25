@@ -172,7 +172,7 @@ models:
         data_type: string
       - name: enrollment_facility
         data_type: string
-      - name: implementation_partner
+      - name: implementing_partner
         data_type: string
       - name: district
         data_type: string
