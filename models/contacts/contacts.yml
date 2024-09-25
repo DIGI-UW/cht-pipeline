@@ -16,7 +16,7 @@ models:
         data_type: string
       - name: province
         data_type: string
-
+        
   - name: contact
     config:
       contract:

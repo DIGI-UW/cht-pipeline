@@ -5,7 +5,7 @@ config-version: 2
 # This setting configures which "profile" dbt uses for this project.
 profile: 'default'
 
-
 seeds:
   pipeline:
-    enabled: true
+    location:
+      enabled: true
