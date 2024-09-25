@@ -172,6 +172,12 @@ models:
         data_type: string
       - name: enrollment_facility
         data_type: string
+      - name: implementation_partner
+        data_type: string
+      - name: district
+        data_type: string
+      - name: province
+        data_type: string
       - name: saved_timestamp
         data_type: timestamp
       - name: day_1
