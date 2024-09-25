@@ -1,6 +1,22 @@
 version: 1
 
 models:
+  - name: location
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: implementation_partner
+        data_type: string
+      - name: facility
+        data_type: string
+        constraints:
+          - type: unique
+      - name: district
+        data_type: string
+      - name: province
+        data_type: string
+
   - name: contact
     config:
       contract:
