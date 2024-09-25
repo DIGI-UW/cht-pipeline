@@ -26,7 +26,7 @@ SELECT
   couchdb.doc->>'patient_id' as patient_id
 FROM {{ ref('person') }} person
 JOIN {{ source('couchdb', env_var('POSTGRES_TABLE')) }} couchdb ON couchdb._id = uuid
-JOIN location location ON location.facility ILIKE person.enrollment_facility
+JOIN v1.location location ON location.facility ILIKE person.enrollment_facility
 WHERE couchdb.doc->>'patient_id' IS NOT NULL
 {% if is_incremental() %}
   AND person.saved_timestamp >= {{ max_existing_timestamp('saved_timestamp') }}
