@@ -66,6 +66,17 @@ models:
               field: uuid
       - name: saved_timestamp
         data_type: timestamp
+      - name: reported
+        data_type: timestamp with time zone
+      - name: age
+        data_type: integer
+      - name: is_minor
+        data_type: boolean
+      - name: vmmc_no
+        data_type: string
+      - name: enrollment_facility
+        data_type: string
+      - name: enrollment_location
       - name: date_of_birth
         data_type: date
       - name: sex
@@ -89,6 +100,8 @@ models:
         data_type: timestamp
       - name: place_id
         data_type: string
+      - name: name
+        data_type: string
   - name: patient
     config:
       contract:
@@ -106,5 +119,107 @@ models:
               field: uuid
       - name: saved_timestamp
         data_type: timestamp
+      - name: reported
+        data_type: timestamp with time zone
+      - name: age
+        data_type: integer
+      - name: is_minor
+        data_type: boolean
+      - name: vmmc_no
+        data_type: string
+      - name: enrollment_facility
+        data_type: string
+      - name: enrollment_location
+        data_type: string
+      - name: implementing_partner
+        data_type: string
+      - name: district
+        data_type: string
+      - name: province
+        data_type: string
       - name: patient_id
+        data_type: string
+  - name: message
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: uuid
+        data_type: string
+        constraints:
+          - type: foreign_key
+            expression: "{{ env_var('POSTGRES_SCHEMA') }}.contact (uuid) ON DELETE CASCADE"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('contact')
+              field: uuid
+      - name: reported
+        data_type: timestamp with time zone
+      - name: name
+        data_type: string
+      - name: phone
+        data_type: string
+      - name: form
+        data_type: string
+      - name: message
+        data_type: string
+      - name: saved_timestamp
+        data_type: timestamp
+  - name: response
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: uuid
+        data_type: string
+        constraints:
+          - type: foreign_key
+            expression: "{{ env_var('POSTGRES_SCHEMA') }}.contact (uuid) ON DELETE CASCADE"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('contact')
+              field: uuid
+      - name: reported
+        data_type: timestamp with time zone
+      - name: age
+        data_type: integer
+      - name: vmmc_no
+        data_type: string
+      - name: enrollment_facility
+        data_type: string
+      - name: implementing_partner
+        data_type: string
+      - name: district
+        data_type: string
+      - name: province
+        data_type: string
+      - name: saved_timestamp
+        data_type: timestamp
+      - name: day_1
+        data_type: string
+      - name: day_2
+        data_type: string
+      - name: day_3
+        data_type: string
+      - name: day_4
+        data_type: string
+      - name: day_5
+        data_type: string
+      - name: day_6
+        data_type: string
+      - name: day_7
+        data_type: string
+      - name: day_8
+        data_type: string
+      - name: day_9
+        data_type: string
+      - name: day_10
+        data_type: string
+      - name: day_11
+        data_type: string
+      - name: day_12
+        data_type: string
+      - name: day_13
         data_type: string

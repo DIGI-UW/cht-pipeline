@@ -13,6 +13,12 @@
 SELECT
   contact.uuid,
   contact.saved_timestamp,
+  contact.reported,
+  (couchdb.doc->>'age_years')::int as age,
+  (couchdb.doc->>'is_minor')::boolean as is_minor,
+  couchdb.doc->>'vmmc_no' as vmmc_no,
+  couchdb.doc->'enrollment_facility'->>'name' as enrollment_facility,
+  couchdb.doc->>'enrollment_location' as enrollment_location
   (couchdb.doc->>'date_of_birth')::date as date_of_birth,
   couchdb.doc->>'sex' as sex
 FROM {{ ref("contact") }} contact

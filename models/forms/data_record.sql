@@ -36,12 +36,16 @@ SELECT
   ) AS place_id,
 
   doc->'contact'->>'_id' as contact_uuid,
+
+  doc->'fields'->'patient_sms'->>'response' as patient_sms_response,
+
+  doc->'fields' as fields
   doc->'contact'->'parent'->>'_id' as parent_uuid,
   doc->'contact'->'parent'->'parent'->>'_id' as grandparent_uuid
 FROM {{ ref('document_metadata') }} document_metadata
 INNER JOIN
-  {{ source('couchdb', env_var('POSTGRES_TABLE')) }} source_table
-  ON source_table._id = document_metadata.uuid
+  {{ source('couchdb', env_var('POSTGRES_TABLE')) }} doc
+  ON doc._id = document_metadata.uuid
 WHERE
   document_metadata.doc_type = 'data_record'
   AND document_metadata._deleted = false
