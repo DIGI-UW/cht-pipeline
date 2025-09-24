@@ -82,6 +82,16 @@ models:
       - name: day_of_week
         data_type: double precision
         description: "Day of week when message was sent (0=Sunday, 6=Saturday)"
-      - name: processing_delay_minutes
-        data_type: double precision
-        description: "Time in minutes from message sent to processed"
+      - name: time_since_last_message
+        data_type: interval
+        description: "Time elapsed since the last message from this phone number"
+      - name: message_health
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['healthy', 'gap_detected', 'processing_error', 'deleted']
+        description: "Health status based on gaps and errors"
+      - name: error_details
+        data_type: string
+        description: "Error information if message failed to process"

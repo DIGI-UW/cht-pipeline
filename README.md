@@ -40,7 +40,7 @@ End-to-end system monitoring for Jamaica CHT deployment using physical Android p
 
 ## What it does
 
-The `monitoring_messages` model creates a comprehensive monitoring system by filtering your existing `data_record` data to show only messages from your dedicated monitoring phones. It provides real-time visibility into your CHT system's health by tracking the complete journey of test messages from physical phones through your entire pipeline.
+The `monitoring_messages` model filters your existing `data_record` data to only messages sent from two dedicated monitoring phones. It derives daily/time features and gap-based health so you can see, per day, whether the three expected pings (07:00, 13:00, 19:00) arrived for each carrier.
 
 ## Architecture
 
@@ -51,121 +51,138 @@ The `monitoring_messages` model creates a comprehensive monitoring system by fil
 
 ## Setup
 
-### 1. Set your monitoring phone numbers:
+### 1) Set monitoring phone numbers
 ```bash
-export MONITORING_PHONE_DIGICEL="+18763456789"  # Your Digicel phone
-export MONITORING_PHONE_FLOW="+18767890123"     # Your Flow phone
+export MONITORING_PHONE_DIGICEL="+1876XXXXXXX"  # Your Digicel phone
+export MONITORING_PHONE_FLOW="+1876YYYYYYY"     # Your Flow phone
 ```
 
-### 2. Run the model:
+### 2) Run the model
 ```bash
 dbt run --select monitoring_messages
 ```
 
-## What you get
+## Fields in `monitoring_messages`
 
-A comprehensive `monitoring_messages` table with:
+### Core
+- `uuid`: CHT document id
+- `from_phone`: Sender (one of your two numbers)
+- `carrier`: Digicel/Flow (derived from +1876 prefixes)
+- `message_content`: SMS text
 
-### Core Fields
-- `uuid` - Unique message identifier
-- `from_phone` - The phone number that sent the message
-- `carrier` - Automatically detected carrier (Digicel/Flow)
-- `message_content` - The actual SMS text content
+### Time
+- `reported`: When the phone reported it sent (from `reported_date`)
+- `saved_timestamp`: When CHT stored the doc
+- `message_date`: Date (for daily charts)
+- `message_hour`: Hour of day (0–23)
+- `day_of_week`: 0=Sunday … 6=Saturday
 
-### Time-based Fields
-- `saved_timestamp` - When message was saved to database
-- `reported` - When message was originally sent
-- `message_date` - Date only (for daily summaries)
-- `message_hour` - Hour of day (0-23)
-- `day_of_week` - Day of week (0=Sunday, 6=Saturday)
+### Health & gaps
+- `time_since_last_message`: Interval since previous message from the same phone
+- `message_health`:
+  - `healthy`: cadence ok
+  - `gap_detected`: large gap vs schedule (see thresholds below)
+  - `processing_error`: CHT recorded errors on the doc
+  - `deleted`: doc marked deleted
+- `error_details`: Raw error info (if present)
 
-### Performance Fields
-- `processing_delay_minutes` - Time from message sent to processed
+## Gap logic (aligned to schedule 07:00, 13:00, 19:00)
+- Same-day gap threshold: > 8 hours (larger than expected 6 hours)
+- Overnight gap threshold (crossing days): > 14 hours (larger than expected ~12 hours)
 
-## Carrier Detection
+Examples
+- 07:00 → 13:00 (6h): healthy
+- 13:00 → 22:00 (9h same-day): gap_detected
+- 19:00 → 07:00 next day (12h): healthy
+- 19:00 → 13:00 next day (18h): gap_detected
 
-Automatically detects carriers based on Jamaica phone patterns:
+## Carrier detection
 - **Digicel**: `+1876[8|3|4|5]XXXXXXX`
 - **Flow**: `+1876[9|7|6]XXXXXXX`
 
-## Superset Dashboard Queries
+## Daily performance in Superset
 
-### Message Timeline
+Dataset: `v1.monitoring_messages`
+- Set Time Column = `message_date` (or `reported`) with Time Grain = Day
+
+### A) Daily messages by carrier (bar)
+- Time: `message_date` (Day)
+- Group by: `carrier`
+- Metric: `COUNT(*)`
+
+### B) Daily gaps by carrier (bar)
+- Time: `message_date` (Day)
+- Group by: `carrier`
+- Metric:
 ```sql
-SELECT 
-  message_date,
-  carrier,
-  COUNT(*) as messages
-FROM monitoring_messages 
-GROUP BY message_date, carrier 
-ORDER BY message_date;
+COUNT(CASE WHEN message_health = 'gap_detected' THEN 1 END)
 ```
 
-### Hourly Patterns
+### C) Daily success vs expected (virtual dataset option)
+Save this as a SQL dataset `daily_monitoring_performance`:
 ```sql
-SELECT 
-  message_hour,
-  carrier,
-  COUNT(*) as messages
-FROM monitoring_messages 
-GROUP BY message_hour, carrier 
-ORDER BY message_hour;
+WITH daily AS (
+  SELECT
+    message_date,
+    from_phone,
+    carrier,
+    COUNT(*) AS received,
+    COUNT(CASE WHEN message_health = 'gap_detected' THEN 1 END) AS gaps
+  FROM v1.monitoring_messages
+  GROUP BY message_date, from_phone, carrier
+),
+by_carrier AS (
+  SELECT
+    message_date,
+    carrier,
+    SUM(received) AS received,
+    SUM(gaps) AS gaps,
+    3 AS expected_per_carrier,
+    ROUND(SUM(received)::numeric / 3.0 * 100, 1) AS success_rate_pct
+  FROM daily
+  GROUP BY message_date, carrier
+),
+overall AS (
+  SELECT
+    message_date,
+    SUM(received) AS received_total,
+    SUM(gaps) AS gaps_total,
+    6 AS expected_total,
+    ROUND(SUM(received)::numeric / 6.0 * 100, 1) AS success_rate_total_pct
+  FROM daily
+  GROUP BY message_date
+)
+SELECT
+  c.message_date,
+  c.carrier,
+  c.received,
+  c.gaps,
+  c.expected_per_carrier,
+  c.success_rate_pct,
+  o.received_total,
+  o.gaps_total,
+  o.expected_total,
+  o.success_rate_total_pct
+FROM by_carrier c
+JOIN overall o USING (message_date)
+ORDER BY c.message_date;
 ```
+Then build charts:
+- Line: `success_rate_total_pct` by day (overall)
+- Multi-series line: `success_rate_pct` by carrier
+- Bar: `received_total` vs `expected_total`
+- Stacked bar: `gaps` by carrier
 
-### Processing Performance
-```sql
-SELECT 
-  carrier,
-  AVG(processing_delay_minutes) as avg_delay,
-  MAX(processing_delay_minutes) as max_delay
-FROM monitoring_messages 
-GROUP BY carrier;
-```
-
-### System Health Score
-```sql
-SELECT 
-  message_date,
-  COUNT(*) as total_messages,
-  COUNT(DISTINCT carrier) as carriers_active,
-  AVG(processing_delay_minutes) as avg_delay
-FROM monitoring_messages 
-GROUP BY message_date 
-ORDER BY message_date;
-```
-
-### Gap Detection (Missing Messages)
-```sql
-SELECT 
-  from_phone,
-  carrier,
-  reported,
-  LAG(reported) OVER (PARTITION BY from_phone ORDER BY reported) as prev_message,
-  EXTRACT(EPOCH FROM (reported - LAG(reported) OVER (PARTITION BY from_phone ORDER BY reported)))/3600.0 as gap_hours
-FROM monitoring_messages 
-ORDER BY reported DESC;
-```
-
-## Monitoring Setup
-
-### Configure Your Android Phones
-1. **Digicel Phone**: Install SMS scheduling app, send "System check - Digicel OK" every 30 minutes
-2. **Flow Phone**: Install SMS scheduling app, send "System check - Flow OK" every 30 minutes (offset by 15 minutes)
-
-### TextIt Integration
-Configure TextIt to forward monitoring messages to CHT via webhook/API.
-
-## Success Metrics
-
-Your monitoring is working when you see:
-- Regular messages from both carriers (every 30 minutes)
-- Balanced message counts between Digicel and Flow
-- Processing delays < 5 minutes average
-- No gaps longer than 2 hours in message timeline
+## Operations checklist
+- Phones send at 07:00, 13:00, 19:00 (use an SMS scheduler)
+- Ensure TextIt → CHT forwarding is active
+- Set `MONITORING_PHONE_DIGICEL`, `MONITORING_PHONE_FLOW`
+- Run `dbt run --select monitoring_messages`
+- Build daily charts in Superset using `message_date`
 
 ## Troubleshooting
+- No rows today: verify phones, TextIt flow, CHT API, env vars
+- Many `gap_detected`: network/device issues or forwarding disabled
+- `processing_error`: inspect `error_details` and CHT logs
+- Missing days in charts: create a date spine dataset and left join
 
-- **No messages**: Check phone connectivity, TextIt integration, CHT API status
-- **Single carrier down**: Check that carrier's network, phone battery, SIM card
-- **High processing delays**: Check database performance, CHT server resources
-- **Gaps in timeline**: Check phone scheduling apps, network coverage
