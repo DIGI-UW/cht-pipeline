@@ -7,10 +7,33 @@
       {'columns': ['uuid'], 'type': 'hash'},
       {'columns': ['from_phone']},
       {'columns': ['carrier']},
-    ]
+    ],
+    post_hook="
+      DO $$
+      DECLARE
+        record_count INTEGER;
+        phone_numbers TEXT;
+      BEGIN
+        SELECT COUNT(*) INTO record_count FROM {{ this }};
+        SELECT STRING_AGG(DISTINCT from_phone, ', ') INTO phone_numbers 
+        FROM {{ this }};
+        
+        RAISE NOTICE '=== MONITORING MESSAGES PROCESSING COMPLETE ===';
+        RAISE NOTICE 'Total records processed: %', record_count;
+        RAISE NOTICE 'Phone numbers found: %', COALESCE(phone_numbers, 'NONE');
+        RAISE NOTICE '==============================================';
+      END $$;
+    "
   )
 }}
 
+-- Logging configuration for debugging
+{{ log("=== MONITORING MESSAGES MODEL CONFIGURATION ===", info=true) }}
+{{ log("MONITORING_PHONE_DIGICEL: " ~ env_var("MONITORING_PHONE_DIGICEL", "NOT_SET"), info=true) }}
+{{ log("MONITORING_PHONE_FLOW: " ~ env_var("MONITORING_PHONE_FLOW", "NOT_SET"), info=true) }}
+{{ log("POSTGRES_TABLE: " ~ env_var("POSTGRES_TABLE", "NOT_SET"), info=true) }}
+{{ log("POSTGRES_SCHEMA: " ~ env_var("POSTGRES_SCHEMA", "NOT_SET"), info=true) }}
+{{ log("================================================", info=true) }}
 SELECT
   document_metadata.uuid as uuid,
   document_metadata.saved_timestamp,
