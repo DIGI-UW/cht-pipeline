@@ -60,8 +60,6 @@ models:
         data_type: timestamp with time zone
         data_tests:
           - not_null
-      - name: form
-        data_type: string
       - name: from_phone
         data_type: string
         data_tests:
@@ -71,16 +69,19 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ['Digicel', 'Flow', 'Unknown']
+              values: ['Digicel', 'Flow']
       - name: message_content
         data_type: string
-      - name: patient_id
-        data_type: string
-      - name: place_id
-        data_type: string
-      - name: contact_uuid
-        data_type: string
-      - name: parent_uuid
-        data_type: string
-      - name: grandparent_uuid
-        data_type: string
+      - name: message_date
+        data_type: date
+        data_tests:
+          - not_null
+      - name: message_hour
+        data_type: double precision
+        description: "Hour of day when message was sent (0-23)"
+      - name: day_of_week
+        data_type: double precision
+        description: "Day of week when message was sent (0=Sunday, 6=Saturday)"
+      - name: processing_delay_minutes
+        data_type: double precision
+        description: "Time in minutes from message sent to processed"
