@@ -35,3 +35,52 @@ models:
         data_type: string
       - name: grandparent_uuid
         data_type: string
+  - name: monitoring_messages
+    config:
+      tags: ["monitoring"]
+      contract:
+        enforced: true
+    columns:
+      - name: uuid
+        data_type: string
+        constraints:
+          - type: foreign_key
+            expression: "{{ env_var('POSTGRES_SCHEMA') }}.document_metadata (uuid) ON DELETE CASCADE"
+          - type: unique
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('document_metadata')
+              field: uuid
+      - name: saved_timestamp
+        data_type: timestamp
+        data_tests:
+          - not_null
+      - name: reported
+        data_type: timestamp with time zone
+        data_tests:
+          - not_null
+      - name: form
+        data_type: string
+      - name: from_phone
+        data_type: string
+        data_tests:
+          - not_null
+      - name: carrier
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['Digicel', 'Flow', 'Unknown']
+      - name: message_content
+        data_type: string
+      - name: patient_id
+        data_type: string
+      - name: place_id
+        data_type: string
+      - name: contact_uuid
+        data_type: string
+      - name: parent_uuid
+        data_type: string
+      - name: grandparent_uuid
+        data_type: string
