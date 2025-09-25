@@ -6,7 +6,8 @@
     indexes=[
       {'columns': ['uuid'], 'type': 'hash'},
       {'columns': ['from_phone']},
-      {'columns': ['carrier']},
+      {'columns': ['message_date']},
+      {'columns': ['message_health']},
     ],
     post_hook="
       DO $$
@@ -40,14 +41,18 @@ SELECT
   to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) AS reported,
   doc->>'from' as from_phone,
   
-  CASE 
-    WHEN doc->>'from' ~ '^(\+1)?876[8|3|4|5]' THEN 'Digicel'
-    WHEN doc->>'from' ~ '^(\+1)?876[9|7|6]' THEN 'Flow'
-  END as carrier,
   
+  -- Robust message extraction handling all possible JSON structures
   COALESCE(
+    -- Handle object format: doc.sms_message.message.value
+    CASE WHEN jsonb_typeof(doc->'sms_message'->'message') = 'object'
+         THEN doc->'sms_message'->'message'->>'value' END,
+    -- Handle string format: doc.sms_message.message
+    doc->'sms_message'->>'message',
+    -- Fallback to parsed fields
     doc->'fields'->>'message',
-    doc->'fields'->>'sms_message', 
+    doc->'fields'->>'sms_message',
+    -- Historical variants
     doc->>'sms_content',
     doc->>'content'
   ) as message_content,
@@ -56,37 +61,38 @@ SELECT
   EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) as message_hour,
   EXTRACT(DOW FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) as day_of_week,
   
+  -- Additional fields for monitoring dashboards
+  CASE 
+    WHEN EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) BETWEEN 6 AND 8 THEN 'morning'
+    WHEN EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) BETWEEN 12 AND 14 THEN 'afternoon'
+    WHEN EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) BETWEEN 18 AND 20 THEN 'evening'
+    ELSE 'other'
+  END as expected_time_slot,
+  
+  -- Flag for expected monitoring times (7am, 1pm, 7pm with 1-hour buffer)
+  CASE 
+    WHEN EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) IN (6,7,8,12,13,14,18,19,20) THEN true
+    ELSE false
+  END as is_expected_monitoring_time,
+  
   to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) - 
   LAG(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) 
   OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) as time_since_last_message,
   
+  -- Robust gap detection for 8-hour scheduled monitoring
   CASE
     WHEN doc->>'errors' IS NOT NULL THEN 'processing_error'
     WHEN doc->>'_deleted' = 'true' THEN 'deleted'
     WHEN (
-      date_trunc('day', to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) =
-      date_trunc('day', LAG(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
-        OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)))
-      AND (
-        to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) -
-        LAG(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
-        OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
-      ) > INTERVAL '8 hours'
-    ) THEN 'gap_detected'
-    WHEN (
-      date_trunc('day', to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) <>
-      date_trunc('day', LAG(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
-        OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)))
-      AND (
-        to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) -
-        LAG(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
-        OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
-      ) > INTERVAL '14 hours'
-    ) THEN 'gap_detected'
+      -- Check if this message is more than 10 hours after the previous message
+      -- (allowing 2 hours buffer beyond the expected 8-hour interval)
+      to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) -
+      LAG(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
+      OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
+    ) > INTERVAL '10 hours' THEN 'gap_detected'
     ELSE 'healthy'
   END as message_health,
   
-  doc->>'errors' as error_details
 
 FROM {{ ref('document_metadata') }} document_metadata
 INNER JOIN

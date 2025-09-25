@@ -64,14 +64,18 @@ models:
         data_type: string
         data_tests:
           - not_null
-      - name: carrier
+      - name: expected_time_slot
         data_type: string
         data_tests:
-          - not_null
           - accepted_values:
-              values: ['Digicel', 'Flow']
+              values: ['morning', 'afternoon', 'evening', 'other']
+        description: "Time slot when message was sent (morning: 6-8am, afternoon: 12-2pm, evening: 6-8pm)"
+      - name: is_expected_monitoring_time
+        data_type: boolean
+        description: "True if message was sent during expected monitoring hours (6-8am, 12-2pm, 6-8pm)"
       - name: message_content
         data_type: string
+        description: "SMS message content extracted from multiple possible JSON paths"
       - name: message_date
         data_type: date
         data_tests:
@@ -92,6 +96,3 @@ models:
           - accepted_values:
               values: ['healthy', 'gap_detected', 'processing_error', 'deleted']
         description: "Health status based on gaps and errors"
-      - name: error_details
-        data_type: string
-        description: "Error information if message failed to process"
