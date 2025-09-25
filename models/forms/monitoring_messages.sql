@@ -6,7 +6,7 @@
     indexes=[
       {'columns': ['uuid'], 'type': 'hash'},
       {'columns': ['from_phone']},
-      {'columns': ['message_date']},
+      {'columns': ['message_timestamp']},
       {'columns': ['message_health']},
     ],
     post_hook="
