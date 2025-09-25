@@ -66,9 +66,8 @@ dbt run --select monitoring_messages
 
 ### Core
 - `uuid`: CHT document id
-- `from_phone`: Sender (one of your two numbers)
-- `carrier`: Digicel/Flow (derived from +1876 prefixes)
-- `message_content`: SMS text
+- `from_phone`: Sender (one of your two monitoring numbers)
+- `message_content`: SMS text (extracted from multiple JSON paths for robustness)
 
 ### Time
 - `reported`: When the phone reported it sent (from `reported_date`)
@@ -77,112 +76,135 @@ dbt run --select monitoring_messages
 - `message_hour`: Hour of day (0–23)
 - `day_of_week`: 0=Sunday … 6=Saturday
 
+### Monitoring Analytics
+- `expected_time_slot`: Time slot when message was sent
+  - `morning`: 6-8am
+  - `afternoon`: 12-2pm  
+  - `evening`: 6-8pm
+  - `other`: outside expected monitoring hours
+- `is_expected_monitoring_time`: Boolean flag for expected monitoring hours (6-8am, 12-2pm, 6-8pm)
+
 ### Health & gaps
 - `time_since_last_message`: Interval since previous message from the same phone
 - `message_health`:
   - `healthy`: cadence ok
-  - `gap_detected`: large gap vs schedule (see thresholds below)
+  - `gap_detected`: message >10 hours after previous (allowing 2-hour buffer beyond 8-hour schedule)
   - `processing_error`: CHT recorded errors on the doc
   - `deleted`: doc marked deleted
-- `error_details`: Raw error info (if present)
 
-## Gap logic (aligned to schedule 07:00, 13:00, 19:00)
-- Same-day gap threshold: > 8 hours (larger than expected 6 hours)
-- Overnight gap threshold (crossing days): > 14 hours (larger than expected ~12 hours)
+## Gap Detection Logic
+- **Simplified threshold**: Any message >10 hours after the previous message = `gap_detected`
+- **Buffer allowance**: 2 hours beyond the expected 8-hour interval for minor delays
+- **Purpose**: Proactive monitoring to detect messaging failures before field staff report issues
 
-Examples
-- 07:00 → 13:00 (6h): healthy
-- 13:00 → 22:00 (9h same-day): gap_detected
-- 19:00 → 07:00 next day (12h): healthy
-- 19:00 → 13:00 next day (18h): gap_detected
+Examples:
+- 07:00 → 13:00 (6h): `healthy`
+- 13:00 → 22:00 (9h): `healthy` (within 10h threshold)
+- 13:00 → 23:30 (10.5h): `gap_detected`
+- 19:00 → 07:00 next day (12h): `gap_detected`
 
-## Carrier detection
-- **Digicel**: `+1876[8|3|4|5]XXXXXXX`
-- **Flow**: `+1876[9|7|6]XXXXXXX`
+## Message Content Extraction
+The model uses robust extraction to handle different JSON structures:
+- Object format: `doc.sms_message.message.value` (TextIt format)
+- String format: `doc.sms_message.message` (direct string)
+- Parsed fields: `doc.fields.message` (canonical CHT format)
+- Fallback paths: `doc.fields.sms_message`, `doc.sms_content`, `doc.content`
 
 ## Daily performance in Superset
 
 Dataset: `v1.monitoring_messages`
 - Set Time Column = `message_date` (or `reported`) with Time Grain = Day
 
-### A) Daily messages by carrier (bar)
+### A) Daily messages by phone (bar)
 - Time: `message_date` (Day)
-- Group by: `carrier`
+- Group by: `from_phone`
 - Metric: `COUNT(*)`
 
-### B) Daily gaps by carrier (bar)
+### B) Daily gaps by phone (bar)
 - Time: `message_date` (Day)
-- Group by: `carrier`
+- Group by: `from_phone`
 - Metric:
 ```sql
 COUNT(CASE WHEN message_health = 'gap_detected' THEN 1 END)
 ```
 
-### C) Daily success vs expected (virtual dataset option)
+### C) Messages by time slot (stacked bar)
+- Time: `message_date` (Day)
+- Group by: `expected_time_slot`
+- Metric: `COUNT(*)`
+
+### D) Daily success vs expected (virtual dataset option)
 Save this as a SQL dataset `daily_monitoring_performance`:
 ```sql
 WITH daily AS (
   SELECT
     message_date,
     from_phone,
-    carrier,
     COUNT(*) AS received,
-    COUNT(CASE WHEN message_health = 'gap_detected' THEN 1 END) AS gaps
+    COUNT(CASE WHEN message_health = 'gap_detected' THEN 1 END) AS gaps,
+    COUNT(CASE WHEN is_expected_monitoring_time THEN 1 END) AS expected_time_messages
   FROM v1.monitoring_messages
-  GROUP BY message_date, from_phone, carrier
+  GROUP BY message_date, from_phone
 ),
-by_carrier AS (
+by_phone AS (
   SELECT
     message_date,
-    carrier,
+    from_phone,
     SUM(received) AS received,
     SUM(gaps) AS gaps,
-    3 AS expected_per_carrier,
-    ROUND(SUM(received)::numeric / 3.0 * 100, 1) AS success_rate_pct
+    SUM(expected_time_messages) AS expected_time_messages,
+    3 AS expected_per_phone,  -- 3 messages per day (morning, afternoon, evening)
+    ROUND(SUM(expected_time_messages)::numeric / 3.0 * 100, 1) AS success_rate_pct
   FROM daily
-  GROUP BY message_date, carrier
+  GROUP BY message_date, from_phone
 ),
 overall AS (
   SELECT
     message_date,
     SUM(received) AS received_total,
     SUM(gaps) AS gaps_total,
-    6 AS expected_total,
-    ROUND(SUM(received)::numeric / 6.0 * 100, 1) AS success_rate_total_pct
+    SUM(expected_time_messages) AS expected_time_total,
+    6 AS expected_total,  -- 2 phones × 3 messages per day
+    ROUND(SUM(expected_time_messages)::numeric / 6.0 * 100, 1) AS success_rate_total_pct
   FROM daily
   GROUP BY message_date
 )
 SELECT
-  c.message_date,
-  c.carrier,
-  c.received,
-  c.gaps,
-  c.expected_per_carrier,
-  c.success_rate_pct,
+  p.message_date,
+  p.from_phone,
+  p.received,
+  p.gaps,
+  p.expected_time_messages,
+  p.expected_per_phone,
+  p.success_rate_pct,
   o.received_total,
   o.gaps_total,
+  o.expected_time_total,
   o.expected_total,
   o.success_rate_total_pct
-FROM by_carrier c
+FROM by_phone p
 JOIN overall o USING (message_date)
-ORDER BY c.message_date;
+ORDER BY p.message_date, p.from_phone;
 ```
 Then build charts:
 - Line: `success_rate_total_pct` by day (overall)
-- Multi-series line: `success_rate_pct` by carrier
-- Bar: `received_total` vs `expected_total`
-- Stacked bar: `gaps` by carrier
+- Multi-series line: `success_rate_pct` by phone
+- Bar: `expected_time_total` vs `expected_total`
+- Stacked bar: `gaps` by phone
 
 ## Operations checklist
 - Phones send at 07:00, 13:00, 19:00 (use an SMS scheduler)
 - Ensure TextIt → CHT forwarding is active
-- Set `MONITORING_PHONE_DIGICEL`, `MONITORING_PHONE_FLOW`
+- Set `MONITORING_PHONE_DIGICEL`, `MONITORING_PHONE_FLOW` environment variables
 - Run `dbt run --select monitoring_messages`
 - Build daily charts in Superset using `message_date`
+- Monitor `expected_time_slot` and `is_expected_monitoring_time` fields for timing analysis
 
 ## Troubleshooting
-- No rows today: verify phones, TextIt flow, CHT API, env vars
-- Many `gap_detected`: network/device issues or forwarding disabled
-- `processing_error`: inspect `error_details` and CHT logs
-- Missing days in charts: create a date spine dataset and left join
+- **No rows today**: verify phones, TextIt flow, CHT API, environment variables
+- **Many `gap_detected`**: network/device issues or forwarding disabled
+- **`processing_error`**: inspect CHT logs for processing issues
+- **NULL `message_content`**: check sync lag or JSON structure differences
+- **Missing days in charts**: create a date spine dataset and left join
+- **Unexpected time slots**: verify phone scheduling and timezone settings
 
