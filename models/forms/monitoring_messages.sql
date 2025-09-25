@@ -91,8 +91,7 @@ SELECT
       OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
     ) > INTERVAL '10 hours' THEN 'gap_detected'
     ELSE 'healthy'
-  END as message_health,
-  
+  END as message_health
 
 FROM {{ ref('document_metadata') }} document_metadata
 INNER JOIN
