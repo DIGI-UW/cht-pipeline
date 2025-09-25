@@ -64,28 +64,14 @@ models:
         data_type: string
         data_tests:
           - not_null
-      - name: expected_time_slot
-        data_type: string
-        data_tests:
-          - accepted_values:
-              values: ['morning', 'afternoon', 'evening', 'other']
-        description: "Time slot when message was sent (morning: 6-8am, afternoon: 12-2pm, evening: 6-8pm)"
-      - name: is_expected_monitoring_time
-        data_type: boolean
-        description: "True if message was sent during expected monitoring hours (6-8am, 12-2pm, 6-8pm)"
       - name: message_content
         data_type: string
         description: "SMS message content extracted from multiple possible JSON paths"
-      - name: message_date
-        data_type: date
+      - name: message_timestamp
+        data_type: timestamp with time zone
         data_tests:
           - not_null
-      - name: message_hour
-        data_type: double precision
-        description: "Hour of day when message was sent (0-23)"
-      - name: day_of_week
-        data_type: double precision
-        description: "Day of week when message was sent (0=Sunday, 6=Saturday)"
+        description: "Full timestamp when message was sent"
       - name: time_since_last_message
         data_type: interval
         description: "Time elapsed since the last message from this phone number"
@@ -94,5 +80,5 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ['healthy', 'gap_detected', 'processing_error', 'deleted']
-        description: "Health status based on gaps and errors"
+              values: ['healthy', 'processing_error', 'deleted']
+        description: "Basic health status - detailed analysis done in Superset queries"

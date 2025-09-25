@@ -57,39 +57,16 @@ SELECT
     doc->>'content'
   ) as message_content,
   
-  DATE(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) as message_date,
-  EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) as message_hour,
-  EXTRACT(DOW FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) as day_of_week,
-  
-  -- Additional fields for monitoring dashboards
-  CASE 
-    WHEN EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) BETWEEN 6 AND 8 THEN 'morning'
-    WHEN EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) BETWEEN 12 AND 14 THEN 'afternoon'
-    WHEN EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) BETWEEN 18 AND 20 THEN 'evening'
-    ELSE 'other'
-  END as expected_time_slot,
-  
-  -- Flag for expected monitoring times (7am, 1pm, 7pm with 1-hour buffer)
-  CASE 
-    WHEN EXTRACT(HOUR FROM to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) IN (6,7,8,12,13,14,18,19,20) THEN true
-    ELSE false
-  END as is_expected_monitoring_time,
+  to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) as message_timestamp,
   
   to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) - 
   LAG(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) 
   OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision)) as time_since_last_message,
   
-  -- Robust gap detection for 8-hour scheduled monitoring
+  -- Basic health status
   CASE
     WHEN doc->>'errors' IS NOT NULL THEN 'processing_error'
     WHEN doc->>'_deleted' = 'true' THEN 'deleted'
-    WHEN (
-      -- Check if this message is more than 10 hours after the previous message
-      -- (allowing 2 hours buffer beyond the expected 8-hour interval)
-      to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision) -
-      LAG(to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
-      OVER (PARTITION BY doc->>'from' ORDER BY to_timestamp((NULLIF(doc->>'reported_date'::text, ''::text)::bigint / 1000)::double precision))
-    ) > INTERVAL '10 hours' THEN 'gap_detected'
     ELSE 'healthy'
   END as message_health
 
