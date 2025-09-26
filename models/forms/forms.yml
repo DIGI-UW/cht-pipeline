@@ -35,3 +35,50 @@ models:
         data_type: string
       - name: grandparent_uuid
         data_type: string
+  - name: monitoring_messages
+    config:
+      tags: ["monitoring"]
+      contract:
+        enforced: true
+    columns:
+      - name: uuid
+        data_type: string
+        constraints:
+          - type: foreign_key
+            expression: "{{ env_var('POSTGRES_SCHEMA') }}.document_metadata (uuid) ON DELETE CASCADE"
+          - type: unique
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('document_metadata')
+              field: uuid
+      - name: saved_timestamp
+        data_type: timestamp
+        data_tests:
+          - not_null
+      - name: reported
+        data_type: timestamp with time zone
+        data_tests:
+          - not_null
+      - name: from_phone
+        data_type: string
+        data_tests:
+          - not_null
+      - name: message_content
+        data_type: string
+        description: "SMS message content extracted from multiple possible JSON paths"
+      - name: message_timestamp
+        data_type: timestamp with time zone
+        data_tests:
+          - not_null
+        description: "Full timestamp when message was sent"
+      - name: time_since_last_message
+        data_type: interval
+        description: "Time elapsed since the last message from this phone number"
+      - name: message_health
+        data_type: string
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['healthy', 'processing_error', 'deleted']
+        description: "Basic health status - detailed analysis done in Superset queries"
